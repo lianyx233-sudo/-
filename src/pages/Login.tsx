@@ -6,18 +6,25 @@ import {
   createUserWithEmailAndPassword,
   doc,
   getDoc,
+  sendEmailVerificationCode,
   sendPasswordResetEmail,
   serverTimestamp,
   setDoc,
   signInWithEmailAndPassword,
+  signInWithEmailVerificationCode,
 } from '../lib/tcb';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
+
+type LoginMethod = 'password' | 'code';
 
 export default function Login() {
   const navigate = useNavigate();
   const [isRegister, setIsRegister] = useState(false);
+  const [loginMethod, setLoginMethod] = useState<LoginMethod>('password');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [verificationInfo, setVerificationInfo] = useState<any>(null);
   const [error, setError] = useState('');
   const [resetMessage, setResetMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -42,6 +49,27 @@ export default function Login() {
     return path;
   };
 
+  const finalizeLogin = async (user: any) => {
+    const ensuredUser = ensureUser(user);
+
+    try {
+      const userDoc = await getDoc(doc(db, 'users', ensuredUser.uid));
+      if (!userDoc.exists()) {
+        await saveUserProfile(ensuredUser);
+      }
+    } catch (err) {
+      console.error('Failed to recover user document', err);
+    }
+
+    navigate('/');
+  };
+
+  const handleEmailChange = (value: string) => {
+    setEmail(value);
+    setVerificationInfo(null);
+    setVerificationCode('');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -63,19 +91,24 @@ export default function Login() {
         return;
       }
 
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = ensureUser(userCredential.user);
-
-      try {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (!userDoc.exists()) {
-          await saveUserProfile(user);
+      if (loginMethod === 'code') {
+        if (!verificationInfo || !verificationCode) {
+          setError('请先获取并输入邮箱验证码。');
+          return;
         }
-      } catch (err) {
-        console.error('Failed to recover user document', err);
+
+        const userCredential = await signInWithEmailVerificationCode(
+          auth,
+          email,
+          verificationInfo,
+          verificationCode,
+        );
+        await finalizeLogin(userCredential.user);
+        return;
       }
 
-      navigate('/');
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      await finalizeLogin(userCredential.user);
     } catch (err: any) {
       if (err.code === 'auth/email-already-in-use') {
         setError('这个邮箱已经注册，请直接登录。');
@@ -86,6 +119,28 @@ export default function Login() {
         console.error(err);
         setError(err.message || '登录过程中出现错误。');
       }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSendVerificationCode = async () => {
+    if (!email) {
+      setError('请先输入邮箱地址。');
+      return;
+    }
+
+    setError('');
+    setResetMessage('');
+    setIsLoading(true);
+
+    try {
+      const info = await sendEmailVerificationCode(auth, email);
+      setVerificationInfo(info);
+      setResetMessage('验证码已发送，请查看邮箱。');
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || '发送验证码失败。');
     } finally {
       setIsLoading(false);
     }
@@ -153,40 +208,100 @@ export default function Login() {
               type="email"
               required
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => handleEmailChange(e.target.value)}
               className="w-full border-b border-black/20 pb-2 bg-transparent focus:outline-none focus:border-black transition-colors"
               placeholder="name@example.com"
             />
           </div>
 
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <label className="block text-xs uppercase tracking-widest text-black/60 font-bold">
+          {!isRegister && (
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setLoginMethod('password')}
+                className={`h-10 text-[10px] uppercase tracking-widest font-bold border transition-colors ${
+                  loginMethod === 'password'
+                    ? 'border-black bg-black text-white'
+                    : 'border-black/10 text-black/50 hover:text-black'
+                }`}
+              >
                 Password
+              </button>
+              <button
+                type="button"
+                onClick={() => setLoginMethod('code')}
+                className={`h-10 text-[10px] uppercase tracking-widest font-bold border transition-colors ${
+                  loginMethod === 'code'
+                    ? 'border-black bg-black text-white'
+                    : 'border-black/10 text-black/50 hover:text-black'
+                }`}
+              >
+                Email Code
+              </button>
+            </div>
+          )}
+
+          {(isRegister || loginMethod === 'password') && (
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <label className="block text-xs uppercase tracking-widest text-black/60 font-bold">
+                  Password
+                </label>
+                {!isRegister && (
+                  <button
+                    type="button"
+                    onClick={handleResetPassword}
+                    className="text-[10px] text-black/40 hover:text-black transition-colors"
+                  >
+                    Forgot Password?
+                  </button>
+                )}
+              </div>
+              <input
+                type="password"
+                required={isRegister || loginMethod === 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full border-b border-black/20 pb-2 bg-transparent focus:outline-none focus:border-black transition-colors"
+                placeholder="Password"
+              />
+            </div>
+          )}
+
+          {!isRegister && loginMethod === 'code' && (
+            <div>
+              <label className="block text-xs uppercase tracking-widest text-black/60 font-bold mb-2">
+                Verification Code
               </label>
-              {!isRegister && (
+              <div className="grid grid-cols-[1fr_auto] gap-3 items-end">
+                <input
+                  type="text"
+                  required
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value)}
+                  className="w-full border-b border-black/20 pb-2 bg-transparent focus:outline-none focus:border-black transition-colors"
+                  placeholder="Code"
+                />
                 <button
                   type="button"
-                  onClick={handleResetPassword}
-                  className="text-[10px] text-black/40 hover:text-black transition-colors"
+                  onClick={handleSendVerificationCode}
+                  disabled={isLoading || !email}
+                  className="h-10 px-4 border border-black/10 text-[10px] uppercase tracking-widest font-bold text-black/50 hover:text-black transition-colors disabled:opacity-50"
                 >
-                  Forgot Password?
+                  Send
                 </button>
-              )}
+              </div>
             </div>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full border-b border-black/20 pb-2 bg-transparent focus:outline-none focus:border-black transition-colors"
-              placeholder="Password"
-            />
-          </div>
+          )}
 
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={
+              isLoading ||
+              (!isRegister &&
+                loginMethod === 'code' &&
+                (!verificationInfo || !verificationCode))
+            }
             className="w-full py-4 bg-[#1A1A1A] text-white text-[10px] uppercase tracking-widest font-bold hover:bg-black/90 transition-colors disabled:opacity-50"
           >
             {isLoading ? 'Processing...' : isRegister ? 'Register' : 'Sign In'}
@@ -195,7 +310,12 @@ export default function Login() {
 
         <div className="mt-8 text-center max-w-[80%]">
           <button
-            onClick={() => setIsRegister(!isRegister)}
+            onClick={() => {
+              setIsRegister(!isRegister);
+              setLoginMethod('password');
+              setError('');
+              setResetMessage('');
+            }}
             className="text-[11px] text-black/40 hover:text-black transition-colors underline underline-offset-4"
           >
             {isRegister ? 'Already have an account? Sign In' : 'Need an account? Register'}

@@ -3,13 +3,23 @@ import * as cloudbaseObj from '@cloudbase/js-sdk';
 const cloudbase = (cloudbaseObj as any).default || cloudbaseObj;
 
 export const tcbEnvId =
-  import.meta.env.VITE_TCB_ENV_ID || 'dianyuwanjia1-d4gy47isafba6b3ce';
-export const tcbRegion = import.meta.env.VITE_TCB_REGION || 'ap-shanghai';
+  import.meta.env.VITE_CLOUDBASE_ENV_ID ||
+  import.meta.env.VITE_TCB_ENV_ID ||
+  'dianyuwanjia1-d4gy47isafba6b3ce';
+export const tcbRegion =
+  import.meta.env.VITE_CLOUDBASE_REGION || import.meta.env.VITE_TCB_REGION || 'ap-shanghai';
+const tcbAccessKey = import.meta.env.VITE_CLOUDBASE_ACCESS_KEY;
 
-export const app = cloudbase.init({
+const cloudbaseConfig: Record<string, string> = {
   env: tcbEnvId,
   region: tcbRegion,
-});
+};
+
+if (tcbAccessKey) {
+  cloudbaseConfig.accessKey = tcbAccessKey;
+}
+
+export const app = cloudbase.init(cloudbaseConfig);
 
 export const auth = app.auth({ persistence: 'local' });
 export const db = app.database();
@@ -249,6 +259,31 @@ export const signInWithEmailAndPassword = async (authObj: any, email: string, pa
 
 export const sendPasswordResetEmail = async (authObj: any, email: string) => {
   throwAuthErrorIfNeeded(await authObj.resetPasswordForEmail(email));
+};
+
+export const sendEmailVerificationCode = async (authObj: any, email: string) => {
+  return throwAuthErrorIfNeeded(await authObj.getVerification({ email }));
+};
+
+export const signInWithEmailVerificationCode = async (
+  authObj: any,
+  email: string,
+  verificationInfo: any,
+  verificationCode: string,
+) => {
+  const signInResult = throwAuthErrorIfNeeded(
+    await authObj.signInWithEmail({
+      verificationInfo,
+      verificationCode,
+      email,
+    }),
+  );
+  const user = await getAuthUser(authObj, signInResult);
+  if (!user) {
+    throw new Error('Email code sign-in succeeded, but no non-anonymous user was returned.');
+  }
+
+  return { user };
 };
 
 export type User = any;
