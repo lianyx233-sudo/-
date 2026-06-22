@@ -1,0 +1,34 @@
+{
+  "$schema": "https://static.cloudbase.net/cli/cloudbaserc.schema.json",
+  "envId": "dianyuwanjia1-d4gy47isafba6b3ce",
+  "region": "ap-shanghai",
+  "app": {
+    "serviceName": "ydys",
+    "framework": "vite",
+    "installCommand": "npm ci",
+    "buildCommand": "npm run build:web",
+    "outputDir": "dist",
+    "deployPath": "/",
+    "envVariables": {
+      "VITE_TCB_ENV_ID": "dianyuwanjia1-d4gy47isafba6b3ce",
+      "VITE_TCB_REGION": "ap-shanghai",
+      "VITE_API_BASE_URL": "https://dianyuwanjia1-d4gy47isafba6b3ce.service.tcloudbase.com/api"
+    }
+  },
+  "functionRoot": "functions",
+  "functions": [
+    {
+      "name": "apiEvent",
+      "runtime": "Nodejs20.19",
+      "handler": "index.main",
+      "timeout": 60,
+      "memorySize": 512,
+      "description": "API for AI image generation",
+      "envVariables": {
+        "AIHUBMIX_API_KEY": ""
+      }
+    }
+  ]
+}
+
+

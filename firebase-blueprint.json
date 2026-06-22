@@ -1,0 +1,116 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and survey data.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "User's email address"
+        },
+        "surveyCompleted": {
+          "type": "boolean",
+          "description": "Whether the user has completed the onboarding survey"
+        },
+        "surveyData": {
+          "type": "object",
+          "properties": {
+            "source": { "type": "string" },
+            "ageGroup": { "type": "string" },
+            "identity": { "type": "string" },
+            "artRelation": { "type": "string" }
+          }
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Account creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Last update timestamp"
+        }
+      },
+      "required": ["email", "surveyCompleted", "createdAt", "updatedAt"]
+    },
+    "Work": {
+      "title": "Work",
+      "description": "A generated artwork / product design.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner user ID"
+        },
+        "prompt": {
+          "type": "string",
+          "description": "The user prompt used"
+        },
+        "typeLabel": {
+          "type": "string",
+          "description": "The type label of the design"
+        },
+        "images": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "URLs of generated images"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Creation timestamp"
+        }
+      },
+      "required": ["userId", "prompt", "typeLabel", "images", "createdAt"]
+    },
+    "Favorite": {
+      "title": "Favorite",
+      "description": "User's favorite article from DiscoverWorkshop.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner user ID"
+        },
+        "articleId": {
+          "type": "string",
+          "description": "ID or index of the favorited article"
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the article"
+        },
+        "category": {
+          "type": "string",
+          "description": "Category of the article"
+        },
+        "readTime": {
+          "type": "string",
+          "description": "Read time of the article"
+        },
+        "author": {
+          "type": "string",
+          "description": "Author or source of the article"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "When it was favorited"
+        }
+      },
+      "required": ["userId", "articleId", "title", "createdAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": { "$ref": "User" },
+      "description": "Stores user profiles including their survey results. Restricted to owner."
+    },
+    "works/{workId}": {
+      "schema": { "$ref": "Work" },
+      "description": "Stores AI generated artworks per user."
+    },
+    "favorites/{favoriteId}": {
+      "schema": { "$ref": "Favorite" },
+      "description": "Stores favorited articles per user."
+    }
+  }
+}

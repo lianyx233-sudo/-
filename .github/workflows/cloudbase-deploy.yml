@@ -1,0 +1,46 @@
+name: Deploy to Tencent CloudBase
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: cloudbase-deploy-main
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDBASE_ENV_ID: dianyuwanjia1-d4gy47isafba6b3ce
+      AIHUBMIX_API_KEY: ${{ secrets.AIHUBMIX_API_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run lint
+
+      - name: Build web assets
+        run: npm run build:web
+
+      - name: Install CloudBase CLI
+        run: npm install -g @cloudbase/cli
+
+      - name: Login to Tencent Cloud
+        run: tcb login --apiKeyId "${{ secrets.TENCENT_SECRET_ID }}" --apiKey "${{ secrets.TENCENT_SECRET_KEY }}"
+
+      - name: Deploy CloudBase
+        run: npm run cloudbase:deploy:ci

@@ -1,0 +1,6 @@
+{
+  "name": "IP 艺术工坊",
+  "description": "“IP艺术工坊”——从认识IP、理解设计方法到参与AI定制创作的大众美育浸润实践平台。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
