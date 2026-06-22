@@ -10,7 +10,7 @@ async function currentUid() {
     return null;
   }
 
-  return user?.uid || null;
+  return user?.uid || user?.userId || user?.sub || user?._id || null;
 }
 
 export async function initCloudBase() {

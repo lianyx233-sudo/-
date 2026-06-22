@@ -157,29 +157,45 @@ export function isAnonymousAuthUser(user: any) {
       '',
   ).toLowerCase();
 
-  return Boolean(user?.isAnonymous) || loginType.includes('anonymous') || loginType === 'anon';
+  return (
+    Boolean(
+      user?.isAnonymous ||
+        user?.is_anonymous ||
+        user?.data?.user?.isAnonymous ||
+        user?.data?.user?.is_anonymous ||
+        user?.user?.isAnonymous ||
+        user?.user?.is_anonymous,
+    ) ||
+    loginType.includes('anonymous') ||
+    loginType === 'anon'
+  );
+}
+
+function normalizeNonAnonymousAuthUser(input: any) {
+  const user = normalizeAuthUser(input);
+  return user && !isAnonymousAuthUser(user) ? user : null;
 }
 
 async function getAuthUser(authObj: any, fallback?: any) {
-  const fromCurrent = normalizeAuthUser(authObj.currentUser);
+  const fromCurrent = normalizeNonAnonymousAuthUser(authObj.currentUser);
   if (fromCurrent) {
     return fromCurrent;
   }
 
   if (typeof authObj.getCurrentUser === 'function') {
-    const fromGetCurrentUser = normalizeAuthUser(await authObj.getCurrentUser());
+    const fromGetCurrentUser = normalizeNonAnonymousAuthUser(await authObj.getCurrentUser());
     if (fromGetCurrentUser) {
       return fromGetCurrentUser;
     }
   }
 
-  const fromFallback = normalizeAuthUser(fallback);
+  const fromFallback = normalizeNonAnonymousAuthUser(fallback);
   if (fromFallback) {
     return fromFallback;
   }
 
   const loginState = await authObj.getLoginState?.();
-  return normalizeAuthUser(loginState);
+  return normalizeNonAnonymousAuthUser(loginState);
 }
 
 export const onAuthStateChanged = (authObj: any, callback: (user: any) => void) => {
@@ -211,23 +227,28 @@ export const createUserWithEmailAndPassword = async (
   const signInResult = throwAuthErrorIfNeeded(
     await authObj.signInWithPassword({ email, password: pass }),
   );
-  return { user: await getAuthUser(authObj, signInResult || signUpResult) };
+  const user = await getAuthUser(authObj, signInResult || signUpResult);
+  if (!user) {
+    throw new Error('Email registration succeeded, but no non-anonymous user was returned.');
+  }
+
+  return { user };
 };
 
 export const signInWithEmailAndPassword = async (authObj: any, email: string, pass: string) => {
   const signInResult = throwAuthErrorIfNeeded(
     await authObj.signInWithPassword({ email, password: pass }),
   );
-  return { user: await getAuthUser(authObj, signInResult) };
+  const user = await getAuthUser(authObj, signInResult);
+  if (!user) {
+    throw new Error('Email sign-in succeeded, but no non-anonymous user was returned.');
+  }
+
+  return { user };
 };
 
 export const sendPasswordResetEmail = async (authObj: any, email: string) => {
   throwAuthErrorIfNeeded(await authObj.resetPasswordForEmail(email));
-};
-
-export const signInAnonymously = async (authObj: any) => {
-  await authObj.signInAnonymously();
-  return { user: await getAuthUser(authObj) };
 };
 
 export type User = any;
